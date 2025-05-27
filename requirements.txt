@@ -1,1 +1,8 @@
-fastapi uvicorn python-dotenv twilio pandas httpx jinja2 gunicorn
+fastapi
+uvicorn
+python-dotenv
+twilio
+pandas
+httpx
+jinja2
+gunicorn
