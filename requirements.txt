@@ -6,3 +6,4 @@ pandas
 httpx
 jinja2
 gunicorn
+python-multipart
