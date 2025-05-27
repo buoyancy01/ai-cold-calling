@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Cold Calling Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>AI Cold Calling Dashboard</h1>
+      <p class="header-subtitle">Automate your outreach with intelligent calling</p>
+    </header>
+
+    <div class="upload-section">
+      <div class="file-upload-wrapper">
+        <label for="csvFile" class="file-upload-label">
+          <i class="fas fa-file-csv"></i>
+          <span id="file-name">Choose a CSV file</span>
+        </label>
+        <input type="file" id="csvFile" accept=".csv">
+      </div>
+      <button class="upload-btn" onclick="uploadCSV()">
+        <i class="fas fa-cloud-upload-alt"></i>
+        Upload & Start Campaign
+      </button>
+    </div>
+
+    <div class="stats-container" id="callStats">
+      <!-- Stats will be populated by JavaScript -->
+    </div>
+
+    <div class="dashboard-grid">
+      <div class="section">
+        <div class="section-header">
+          <i class="fas fa-check-circle"></i>
+          <h2>Call Logs</h2>
+        </div>
+        <div class="logs-container" id="logs"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <i class="fas fa-exclamation-circle"></i>
+          <h2>Error Logs</h2>
+        </div>
+        <div class="logs-container" id="errors"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <i class="fas fa-microphone"></i>
+          <h2>Call Recordings</h2>
+        </div>
+        <div class="logs-container" id="recordings"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Update file name display when file is selected
+    document.getElementById('csvFile').addEventListener('change', function(e) {
+      const fileName = e.target.files[0] ? e.target.files[0].name : 'Choose a CSV file';
+      document.getElementById('file-name').textContent = fileName;
+    });
+
+    async function fetchLogs() {
+      try {
+        const response = await fetch('/logs/');
+        const data = await response.json();
+
+        // Clear previous content
+        document.getElementById('logs').innerHTML = '';
+        document.getElementById('errors').innerHTML = '';
+        document.getElementById('recordings').innerHTML = '';
+
+        // Update stats cards
+        document.getElementById('callStats').innerHTML = `
+          <div class="stat-card calls-made">
+            <div class="stat-icon"><i class="fas fa-phone-alt"></i></div>
+            <div class="stat-value">${data.calls_made}</div>
+            <div class="stat-label">Calls Made</div>
+          </div>
+          <div class="stat-card calls-failed">
+            <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
+            <div class="stat-value">${data.calls_failed}</div>
+            <div class="stat-label">Calls Failed</div>
+          </div>
+          <div class="stat-card recordings">
+            <div class="stat-icon"><i class="fas fa-microphone"></i></div>
+            <div class="stat-value">${data.total_recordings}</div>
+            <div class="stat-label">Recordings</div>
+          </div>
+        `;
+
+        // Populate call logs
+        data.logs.forEach(log => {
+          const logEntry = document.createElement('div');
+          logEntry.className = 'log-entry success';
+          logEntry.innerHTML = `
+            <i class="fas fa-check"></i>
+            <span>${log}</span>
+          `;
+          document.getElementById('logs').appendChild(logEntry);
+        });
+
+        // Populate error logs
+        data.errors.forEach(error => {
+          const errorEntry = document.createElement('div');
+          errorEntry.className = 'log-entry error';
+          errorEntry.innerHTML = `
+            <i class="fas fa-exclamation"></i>
+            <span>${error}</span>
+          `;
+          document.getElementById('errors').appendChild(errorEntry);
+        });
+
+        // Populate recordings
+        data.recordings.forEach(rec => {
+          const recordingItem = document.createElement('div');
+          recordingItem.className = 'recording-item';
+
+          // Extract date from URL or use current time as fallback
+          const recordingDate = rec.url.match(/\d{4}-\d{2}-\d{2}/) ? 
+                               rec.url.match(/\d{4}-\d{2}-\d{2}/)[0] : 
+                               new Date().toISOString().split('T')[0];
+
+          recordingItem.innerHTML = `
+            <div class="recording-header">
+              <span class="recording-number"><i class="fas fa-phone"></i> ${rec.number}</span>
+              <span class="recording-date">${recordingDate}</span>
+            </div>
+            <audio controls class="audio-player">
+              <source src="${rec.url}" type="audio/mpeg">
+              Your browser does not support the audio element.
+            </audio>
+            <button class="download-btn" onclick="window.open('${rec.url}', '_blank')">
+              <i class="fas fa-download"></i>
+              Download
+            </button>
+          `;
+          document.getElementById('recordings').appendChild(recordingItem);
+        });
+
+      } catch (error) {
+        console.error('Error fetching logs:', error);
+      }
+    }
+
+    async function uploadCSV() {
+      const fileInput = document.getElementById('csvFile');
+      if (!fileInput.files[0]) {
+        alert('Please select a CSV file first');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      try {
+        const uploadBtn = document.querySelector('.upload-btn');
+        uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+        uploadBtn.disabled = true;
+
+        const response = await fetch('/upload_csv/', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          throw new Error('Upload failed');
+        }
+
+        uploadBtn.innerHTML = '<i class="fas fa-check"></i> Upload Successful!';
+        setTimeout(() => {
+          uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Upload & Start Campaign';
+          uploadBtn.disabled = false;
+        }, 2000);
+
+        fetchLogs();
+      } catch (error) {
+        console.error('Upload error:', error);
+        const uploadBtn = document.querySelector('.upload-btn');
+        uploadBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Upload Failed';
+        uploadBtn.style.backgroundColor = 'var(--danger)';
+        setTimeout(() => {
+          uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Upload & Start Campaign';
+          uploadBtn.style.backgroundColor = 'var(--primary)';
+          uploadBtn.disabled = false;
+        }, 2000);
+      }
+    }
+
+    // Initial fetch and then every 10 seconds
+    fetchLogs();
+    setInterval(fetchLogs, 10000);
+  </script>
+</body>
+</html>
